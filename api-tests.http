@@ -1,0 +1,83 @@
+### Works in IntelliJ HTTP client / VS Code "REST Client". These calls can be used with the HTTP client.
+@base = http://localhost:8080/api
+
+### ---------- NORMAL FLOW ----------
+POST {{base}}/rooms
+Content-Type: application/json
+
+{"roomNumber":"205","roomType":"Deluxe","floor":2}
+
+###
+POST {{base}}/housekeepers
+Content-Type: application/json
+
+{"name":"Ravi Kumar","phone":"9876543210","email":"ravi@stayease.com"}
+
+### 3-5: room DIRTY -> task auto-created and assigned (use the room id returned above)
+POST {{base}}/rooms/13/dirty
+
+### 6: start (task id from GET /tasks)
+PUT {{base}}/tasks/1/start
+
+### 7: complete
+PUT {{base}}/tasks/1/complete
+
+### 8-9: pass inspection -> room READY
+POST {{base}}/inspections
+Content-Type: application/json
+X-Performed-By: Supervisor Priya
+
+{"taskId":1,"supervisorName":"Supervisor Priya","result":"PASSED","remarks":"All good"}
+
+### 11-12: booking succeeds
+POST {{base}}/bookings
+Content-Type: application/json
+
+{"guestName":"Arun","roomId":13,"checkIn":"2026-10-01","checkOut":"2026-10-03"}
+
+### ---------- INVALID CASES (each must return a clear error) ----------
+### Book a DIRTY / CLEANING room -> 409 ROOM_NOT_READY (mark a room dirty first, then book it)
+POST {{base}}/bookings
+Content-Type: application/json
+
+{"guestName":"Test","roomId":1,"checkIn":"2026-10-01","checkOut":"2026-10-02"}
+
+### DIRTY -> READY directly -> 409 INVALID_STATUS_TRANSITION
+PUT {{base}}/rooms/1
+Content-Type: application/json
+
+{"roomNumber":"101","roomType":"Single","floor":1,"status":"READY"}
+
+### Inspect before cleaning is complete -> 409 INVALID_STATUS_TRANSITION
+POST {{base}}/inspections
+Content-Type: application/json
+
+{"taskId":2,"supervisorName":"Priya","result":"PASSED"}
+
+### Failed inspection without remarks -> 400 BAD_REQUEST
+POST {{base}}/inspections
+Content-Type: application/json
+
+{"taskId":2,"supervisorName":"Priya","result":"FAILED"}
+
+### No housekeeper available (set all OFF_DUTY first) -> 409 HOUSEKEEPER_UNAVAILABLE
+POST {{base}}/rooms/2/dirty
+
+### Invalid input -> 400 VALIDATION_ERROR
+POST {{base}}/rooms
+Content-Type: application/json
+
+{"roomNumber":"","roomType":"","floor":-1}
+
+### Non-existing room -> 404 RESOURCE_NOT_FOUND
+GET {{base}}/rooms/9999
+
+### Pagination + sorting
+GET {{base}}/tasks?page=0&size=5&sort=assignedAt,desc
+
+### Reports
+GET {{base}}/reports/housekeeper-workload
+###
+GET {{base}}/reports/turnaround-time
+###
+GET {{base}}/dashboard/summary

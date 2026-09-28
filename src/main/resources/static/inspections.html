@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StayEase | Inspections</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+
+</head><body>
+<div class="app"><aside class="sidebar" id="sidebar"></aside>
+<div class="main"><header class="topbar" id="topbar"></header>
+<main class="content">
+
+<div class="panel"><div class="panel-head"><h3>Waiting for Inspection</h3></div>
+<div class="table-wrap"><table><thead><tr><th>Room</th><th>Housekeeper</th><th>Cleaning Status</th><th>Completed</th><th>Action</th></tr></thead><tbody id="pending"></tbody></table></div></div>
+<div class="panel"><div class="panel-head"><h3>Inspection History</h3></div>
+<div class="table-wrap"><table><thead><tr><th>ID</th><th>Room</th><th>Task</th><th>Supervisor</th><th>Result</th><th>Remarks</th><th>Date</th></tr></thead><tbody id="history"></tbody></table></div>
+<div class="pager" id="pager"></div></div>
+</main></div></div>
+<script src="js/app.js"></script>
+<script>
+initLayout('inspections', 'Inspections');
+
+let page = 0, tasks = [];
+async function load() {
+  try {
+    const [pend, hist] = await Promise.all([api("/inspections/pending"), api(`/inspections?page=${page}&size=8&sort=inspectedAt,desc`)]);
+    tasks = pend;
+    document.getElementById("pending").innerHTML = pend.length ? pend.map(t => `<tr><td><b>${esc(t.roomNumber)}</b></td><td>${esc(t.housekeeperName)}</td><td>${badge(t.status)}</td><td>${fmt(t.completedAt)}</td>
+      <td><button class="btn btn-primary btn-sm" onclick="inspect(${t.id})">Inspect</button></td></tr>`).join("")
+      : `<tr><td colspan="5" class="empty">No rooms are waiting for inspection.</td></tr>`;
+    document.getElementById("history").innerHTML = hist.content.length ? hist.content.map(i => `<tr><td>#${i.id}</td><td><b>${esc(i.roomNumber)}</b></td><td>#${i.taskId}</td><td>${esc(i.supervisorName)}</td><td>${badge(i.result)}</td>
+      <td style="white-space:normal">${esc(i.remarks || "-")}</td><td>${fmt(i.inspectedAt)}</td></tr>`).join("")
+      : `<tr><td colspan="7" class="empty">No inspections recorded yet.</td></tr>`;
+    pager("pager", hist, n => { page = n; load(); });
+  } catch (e) { toast(e.message, "error"); }
+}
+function inspect(taskId) {
+  const t = tasks.find(x => x.id === taskId);
+  openModal("Inspect Room " + esc(t.roomNumber), `<label>Supervisor</label><input name="sup" value="${esc(getUser().name)}" required>
+    <label>Result</label><div class="radio-row"><label><input type="radio" name="result" value="PASSED" checked> Pass</label><label><input type="radio" name="result" value="FAILED"> Fail</label></div>
+    <label>Remarks (required if the room fails)</label><textarea name="remarks" rows="3"></textarea>`,
+    async f => {
+      if (f.get("result") === "FAILED" && !f.get("remarks").trim()) throw new Error("Remarks are required when an inspection fails.");
+      await api("/inspections", "POST", {taskId, supervisorName: f.get("sup"), result: f.get("result"), remarks: f.get("remarks") || null});
+      toast(f.get("result") === "PASSED" ? "Passed. Room is now READY." : "Failed. Room sent back for cleaning.", "ok"); load();
+    }, "Submit inspection");
+}
+load();
+</script>
+</body></html>

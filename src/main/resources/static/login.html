@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StayEase | Sign in</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head><body>
+<div class="login">
+  <section class="login-art">
+    <div class="brand"></div>
+    <div class="tagline">Smart Hotel Operations</div>
+    <svg class="sky" viewBox="0 0 600 300" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+      <circle cx="470" cy="70" r="34" fill="#C9A227" opacity=".9"/>
+      <g fill="#0b2035" opacity=".55"><rect x="20" y="170" width="70" height="130"/><rect x="100" y="120" width="60" height="180"/><rect x="170" y="190" width="80" height="110"/><rect x="420" y="150" width="70" height="150"/><rect x="500" y="200" width="90" height="100"/></g>
+      <g fill="#0a1c2e"><rect x="240" y="60" width="130" height="240"/><rect x="270" y="40" width="70" height="30"/></g>
+      <g fill="#C9A227" opacity=".85">
+        <rect x="256" y="84" width="14" height="14"/><rect x="284" y="84" width="14" height="14"/><rect x="312" y="84" width="14" height="14"/><rect x="340" y="84" width="14" height="14"/>
+        <rect x="256" y="114" width="14" height="14"/><rect x="312" y="114" width="14" height="14"/><rect x="340" y="114" width="14" height="14"/>
+        <rect x="256" y="144" width="14" height="14"/><rect x="284" y="144" width="14" height="14"/><rect x="340" y="144" width="14" height="14"/>
+        <rect x="284" y="174" width="14" height="14"/><rect x="312" y="174" width="14" height="14"/><rect x="340" y="174" width="14" height="14"/>
+        <rect x="256" y="204" width="14" height="14"/><rect x="312" y="204" width="14" height="14"/>
+        <rect x="290" y="250" width="30" height="50"/></g>
+    </svg>
+  </section>
+  <section class="login-form">
+    <form id="loginForm">
+      <h1>Welcome Back</h1>
+      <p class="muted">Sign in to manage hotel operations</p>
+      <label for="email">Email</label><input id="email" type="email" required placeholder="you@stayease.com" autocomplete="username">
+      <label for="password">Password</label><input id="password" type="password" required autocomplete="current-password">
+      <div class="row"><label><input type="checkbox" id="remember"> Remember me</label><a href="#" onclick="alert('Password reset is not part of this demo.');return false">Forgot password?</a></div>
+      <div class="form-error" id="err"></div>
+      <button class="btn btn-primary">Login</button>
+      <p class="muted" style="font-size:12px;margin-top:18px">Demo: admin@stayease.com / admin123 &nbsp;|&nbsp; supervisor@stayease.com / super123</p>
+    </form>
+  </section>
+</div>
+<script src="js/app.js"></script>
+<script>
+document.querySelector('.login-art .brand').innerHTML = LOGO + '<b>StayEase</b>';
+document.getElementById('email').value = localStorage.getItem('rememberEmail') || '';
+document.getElementById('remember').checked = !!localStorage.getItem('rememberEmail');
+document.getElementById('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  try {
+    const u = await api('/auth/login', 'POST', {email: email.value, password: password.value});
+    sessionStorage.setItem('user', JSON.stringify(u));
+    if (remember.checked) localStorage.setItem('rememberEmail', email.value); else localStorage.removeItem('rememberEmail');
+    location.href = 'dashboard.html';
+  } catch (err) { document.getElementById('err').textContent = err.message; }
+});
+</script>
+</body></html>

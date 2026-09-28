@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StayEase | Rooms</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+
+</head><body>
+<div class="app"><aside class="sidebar" id="sidebar"></aside>
+<div class="main"><header class="topbar" id="topbar"></header>
+<main class="content">
+
+<div class="panel">
+  <div class="panel-head"><h3>All Rooms</h3>
+    <div class="toolbar"><input id="q" placeholder="Search room number or type" aria-label="Search"><select id="fStatus" aria-label="Filter by status"><option value="">All statuses</option><option>DIRTY</option><option>CLEANING</option><option>INSPECTED</option><option>READY</option></select>
+    <button class="btn btn-gold" id="addBtn">+ Add Room</button></div></div>
+  <div class="table-wrap"><table><thead><tr><th>Room No.</th><th>Type</th><th>Floor</th><th>Status</th><th>Assigned Housekeeper</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div>
+  <div class="pager" id="pager"></div>
+</div>
+</main></div></div>
+<script src="js/app.js"></script>
+<script>
+initLayout('rooms', 'Rooms');
+
+let page = 0, rooms = [];
+async function load() {
+  try {
+    const st = fStatus.value;
+    const p = await api(`/rooms?page=${page}&size=10&sort=roomNumber,asc${st ? "&status=" + st : ""}`);
+    rooms = p.content; render(); pager("pager", p, n => { page = n; load(); });
+  } catch (e) { toast(e.message, "error"); }
+}
+function render() {
+  const q = document.getElementById("q").value.toLowerCase();
+  const list = rooms.filter(r => (r.roomNumber + r.roomType).toLowerCase().includes(q));
+  document.getElementById("rows").innerHTML = list.length ? list.map(r => `<tr>
+    <td><b>${esc(r.roomNumber)}</b></td><td>${esc(r.roomType)}</td><td>${r.floor}</td><td>${badge(r.status)}</td><td>${esc(r.assignedHousekeeper || "-")}</td>
+    <td><button class="btn btn-ghost btn-sm" onclick="view(${r.id})">View</button><button class="btn btn-ghost btn-sm" onclick="edit(${r.id})">Edit</button>
+    ${r.status === "READY" ? `<button class="btn btn-primary btn-sm" onclick="dirty(${r.id})">Mark Dirty</button>` : ""}
+    <button class="btn btn-danger btn-sm" onclick="del(${r.id})">Delete</button></td></tr>`).join("")
+    : `<tr><td colspan="6" class="empty">No rooms found.</td></tr>`;
+}
+const form = r => `<label>Room number</label><input name="roomNumber" value="${esc(r?.roomNumber)}" required>
+  <label>Room type</label><select name="roomType">${["Single","Double","Deluxe","Suite"].map(t => `<option ${r?.roomType === t ? "selected" : ""}>${t}</option>`).join("")}</select>
+  <label>Floor</label><input name="floor" type="number" min="1" value="${r?.floor ?? ""}" required>`;
+const body = f => ({roomNumber: f.get("roomNumber"), roomType: f.get("roomType"), floor: Number(f.get("floor"))});
+addBtn.onclick = () => openModal("Add Room", form(), async f => { await api("/rooms", "POST", body(f)); toast("Room added", "ok"); load(); });
+function edit(id) { const r = rooms.find(x => x.id === id); openModal("Edit Room", form(r), async f => { await api("/rooms/" + id, "PUT", body(f)); toast("Room updated", "ok"); load(); }); }
+function view(id) { const r = rooms.find(x => x.id === id);
+  openModal("Room " + esc(r.roomNumber), `<dl class="kv"><dt>Type</dt><dd>${esc(r.roomType)}</dd><dt>Floor</dt><dd>${r.floor}</dd><dt>Status</dt><dd>${badge(r.status)}</dd>
+  <dt>Housekeeper</dt><dd>${esc(r.assignedHousekeeper || "-")}</dd><dt>Created</dt><dd>${fmt(r.createdAt)}</dd><dt>Updated</dt><dd>${fmt(r.updatedAt)}</dd></dl>`); }
+async function dirty(id) { await run(() => api(`/rooms/${id}/dirty`, "POST"), "Room marked dirty. Cleaning task assigned."); load(); }
+async function del(id) { if (!confirm("Delete this room?")) return; await run(() => api("/rooms/" + id, "DELETE"), "Room deleted"); load(); }
+q.oninput = render; fStatus.onchange = () => { page = 0; load(); };
+load();
+</script>
+</body></html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StayEase | Bookings</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+
+</head><body>
+<div class="app"><aside class="sidebar" id="sidebar"></aside>
+<div class="main"><header class="topbar" id="topbar"></header>
+<main class="content">
+
+<div class="panel">
+  <div class="panel-head"><h3>Bookings</h3><button class="btn btn-gold" id="addBtn">+ New Booking</button></div>
+  <div class="table-wrap"><table><thead><tr><th>ID</th><th>Guest</th><th>Room</th><th>Check-in</th><th>Check-out</th><th>Status</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div>
+  <div class="pager" id="pager"></div>
+</div>
+</main></div></div>
+<script src="js/app.js"></script>
+<script>
+initLayout('bookings', 'Bookings');
+
+let page = 0, list = [];
+async function load() {
+  try {
+    const p = await api(`/bookings?page=${page}&size=10&sort=id,desc`);
+    list = p.content;
+    document.getElementById("rows").innerHTML = list.length ? list.map(b => `<tr><td>#${b.id}</td><td>${esc(b.guestName)}</td><td><b>${esc(b.roomNumber)}</b></td><td>${b.checkIn}</td><td>${b.checkOut}</td><td>${badge(b.status)}</td>
+      <td>${b.status === "BOOKED" ? `<button class="btn btn-primary btn-sm" onclick="setStatus(${b.id},'CHECKED_IN')">Check-in</button>` : ""}
+      ${b.status === "CHECKED_IN" ? `<button class="btn btn-gold btn-sm" onclick="setStatus(${b.id},'CHECKED_OUT')">Check-out</button>` : ""}
+      ${b.status === "BOOKED" || b.status === "CHECKED_IN" ? `<button class="btn btn-ghost btn-sm" onclick="edit(${b.id})">Edit</button>` : ""}
+      ${b.status === "BOOKED" ? `<button class="btn btn-danger btn-sm" onclick="cancel(${b.id})">Cancel</button>` : ""}</td></tr>`).join("")
+      : `<tr><td colspan="7" class="empty">No bookings yet.</td></tr>`;
+    pager("pager", p, n => { page = n; load(); });
+  } catch (e) { toast(e.message, "error"); }
+}
+const dates = b => `<label>Check-in</label><input name="checkIn" type="date" value="${b?.checkIn || ""}" required><label>Check-out</label><input name="checkOut" type="date" value="${b?.checkOut || ""}" required>`;
+addBtn.onclick = async () => {
+  let ready = [];
+  try { ready = (await api("/rooms?status=READY&size=100&sort=roomNumber,asc")).content; } catch (e) { toast(e.message, "error"); return; }
+  if (!ready.length) { toast("No rooms are READY right now. Rooms must be cleaned and inspected first.", "error"); return; }
+  openModal("New Booking", `<label>Guest name</label><input name="guestName" required>
+    <label>Room (only READY rooms)</label><select name="roomId">${ready.map(r => `<option value="${r.id}">${esc(r.roomNumber)} - ${esc(r.roomType)}</option>`).join("")}</select>` + dates() +
+    `<label>Status</label><input value="BOOKED" disabled>`,
+    async f => { await api("/bookings", "POST", {guestName: f.get("guestName"), roomId: Number(f.get("roomId")), checkIn: f.get("checkIn"), checkOut: f.get("checkOut")}); toast("Booking created", "ok"); load(); }, "Create booking");
+};
+function edit(id) {
+  const b = list.find(x => x.id === id);
+  openModal("Edit Booking #" + id, `<label>Guest name</label><input name="guestName" value="${esc(b.guestName)}" required><label>Room</label><input value="${esc(b.roomNumber)}" disabled>` + dates(b) +
+    `<label>Status</label><select name="status">${["BOOKED","CHECKED_IN","CHECKED_OUT","CANCELLED"].map(s => `<option ${b.status === s ? "selected" : ""}>${s}</option>`).join("")}</select>`,
+    async f => { await api("/bookings/" + id, "PUT", {guestName: f.get("guestName"), roomId: b.roomId, checkIn: f.get("checkIn"), checkOut: f.get("checkOut"), status: f.get("status")}); toast("Booking updated", "ok"); load(); });
+}
+async function setStatus(id, status) {
+  const b = list.find(x => x.id === id);
+  await run(() => api("/bookings/" + id, "PUT", {guestName: b.guestName, roomId: b.roomId, checkIn: b.checkIn, checkOut: b.checkOut, status}),
+    status === "CHECKED_OUT" ? "Checked out. Room is now dirty and a cleaning task was assigned." : "Guest checked in");
+  load();
+}
+async function cancel(id) { if (!confirm("Cancel this booking?")) return; await run(() => api("/bookings/" + id, "DELETE"), "Booking cancelled"); load(); }
+load();
+</script>
+</body></html>

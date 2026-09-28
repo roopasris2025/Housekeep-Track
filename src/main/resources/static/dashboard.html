@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StayEase | Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head><body>
+<div class="app"><aside class="sidebar" id="sidebar"></aside>
+<div class="main"><header class="topbar" id="topbar"></header>
+<main class="content">
+
+<div class="cards" id="cards"></div>
+<div class="grid2">
+  <div class="panel"><div class="panel-head"><h3>Room Status Overview</h3></div><canvas id="roomChart" height="200"></canvas></div>
+  <div class="panel"><div class="panel-head"><h3>Housekeeper Workload</h3></div><canvas id="workChart" height="120"></canvas></div>
+</div>
+<div class="panel"><div class="panel-head"><h3>Recent Cleaning Tasks</h3><a class="btn btn-ghost btn-sm" href="tasks.html" style="text-decoration:none">View all</a></div>
+<div class="table-wrap"><table><thead><tr><th>Room</th><th>Housekeeper</th><th>Status</th><th>Time</th></tr></thead><tbody id="recent"></tbody></table></div></div>
+</main></div></div>
+<script src="js/app.js"></script>
+<script>
+initLayout('dashboard', 'Dashboard');
+
+async function load() {
+  try {
+    const [s, w, t] = await Promise.all([api("/dashboard/summary"), api("/reports/housekeeper-workload"), api("/tasks?page=0&size=5&sort=assignedAt,desc")]);
+    const c = (cls, label, v) => `<div class="stat ${cls}"><small>${label}</small><strong>${v}</strong></div>`;
+    document.getElementById("cards").innerHTML =
+      c("", "Total Rooms", s.totalRooms) + c("dirty", "Dirty", s.dirty) + c("cleaning", "Cleaning", s.cleaning) +
+      c("pending", "Pending Inspection", s.pendingInspection) + c("ready", "Ready", s.ready) +
+      c("gold", "Available Housekeepers", s.availableHousekeepers) + c("gold", "Avg Turnaround", s.avgTurnaroundMinutes + " min");
+    document.getElementById("recent").innerHTML = t.content.length ? t.content.map(x =>
+      `<tr><td><b>${esc(x.roomNumber)}</b></td><td>${esc(x.housekeeperName)}</td><td>${badge(x.status)}</td><td>${fmt(x.assignedAt)}</td></tr>`).join("")
+      : `<tr><td colspan="4" class="empty">No cleaning tasks yet. Mark a room as dirty to start one.</td></tr>`;
+    if (window.Chart) {
+      new Chart(document.getElementById("roomChart"), {type: "doughnut",
+        data: {labels: ["Dirty", "Cleaning", "Inspected", "Ready"], datasets: [{data: [s.dirty, s.cleaning, s.inspected, s.ready], backgroundColor: ["#C0392B", "#D68910", "#2E86C1", "#1E8E5A"]}]},
+        options: {plugins: {legend: {position: "bottom"}}}});
+      new Chart(document.getElementById("workChart"), {type: "bar",
+        data: {labels: w.map(h => h.name), datasets: [{label: "Active", data: w.map(h => h.activeTasks), backgroundColor: "#C9A227"}, {label: "Completed", data: w.map(h => h.completedTasks), backgroundColor: "#0F2A43"}]},
+        options: {scales: {y: {beginAtZero: true, ticks: {precision: 0}}}}});
+    }
+  } catch (e) { toast(e.message, "error"); }
+}
+load();
+</script>
+</body></html>

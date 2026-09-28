@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StayEase | Cleaning Tasks</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+
+</head><body>
+<div class="app"><aside class="sidebar" id="sidebar"></aside>
+<div class="main"><header class="topbar" id="topbar"></header>
+<main class="content">
+
+<div class="panel">
+  <div class="panel-head"><h3>Cleaning Tasks</h3><div class="toolbar"><select id="sort" aria-label="Sort"><option value="assignedAt,desc">Newest first</option><option value="assignedAt,asc">Oldest first</option></select></div></div>
+  <div class="table-wrap"><table><thead><tr><th>Task</th><th>Room</th><th>Housekeeper</th><th>Status</th><th>Assigned</th><th>Started</th><th>Completed</th><th>Action</th></tr></thead><tbody id="rows"></tbody></table></div>
+  <div class="pager" id="pager"></div>
+</div>
+</main></div></div>
+<script src="js/app.js"></script>
+<script>
+initLayout('tasks', 'Cleaning Tasks');
+
+let page = 0;
+async function load() {
+  try {
+    const p = await api(`/tasks?page=${page}&size=10&sort=${sort.value}`);
+    document.getElementById("rows").innerHTML = p.content.length ? p.content.map(t => `<tr><td>#${t.id}</td><td><b>${esc(t.roomNumber)}</b></td><td>${esc(t.housekeeperName)}</td><td>${badge(t.status)}</td>
+      <td>${fmt(t.assignedAt)}</td><td>${fmt(t.startedAt)}</td><td>${fmt(t.completedAt)}</td>
+      <td>${t.status === "ASSIGNED" ? `<button class="btn btn-primary btn-sm" onclick="act(${t.id},'start')">Start</button>`
+        : t.status === "IN_PROGRESS" ? `<button class="btn btn-gold btn-sm" onclick="act(${t.id},'complete')">Complete</button>`
+        : `<span class="muted">${t.inspected ? "Inspected" : "Awaiting inspection"}</span>`}</td></tr>`).join("")
+      : `<tr><td colspan="8" class="empty">No tasks yet. Tasks appear automatically when a room becomes dirty.</td></tr>`;
+    pager("pager", p, n => { page = n; load(); });
+  } catch (e) { toast(e.message, "error"); }
+}
+async function act(id, what) { await run(() => api(`/tasks/${id}/${what}`, "PUT"), what === "start" ? "Cleaning started" : "Cleaning completed. Ready for inspection."); load(); }
+sort.onchange = () => { page = 0; load(); };
+load();
+</script>
+</body></html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StayEase | Housekeepers</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+
+</head><body>
+<div class="app"><aside class="sidebar" id="sidebar"></aside>
+<div class="main"><header class="topbar" id="topbar"></header>
+<main class="content">
+
+<div class="panel-head"><h3 style="font-size:20px">Housekeeping Team</h3><button class="btn btn-gold" id="addBtn">+ Add Housekeeper</button></div>
+<div class="hk-grid" id="grid"></div>
+</main></div></div>
+<script src="js/app.js"></script>
+<script>
+initLayout('housekeepers', 'Housekeepers');
+
+let list = [];
+async function load() {
+  try {
+    list = await api("/housekeepers");
+    document.getElementById("grid").innerHTML = list.length ? list.map(h => {
+      const pct = Math.min(100, Math.round(h.activeTasks / 3 * 100));
+      return `<div class="hk"><div class="hk-top"><div class="avatar">${esc(h.name[0])}</div><div style="flex:1"><b>${esc(h.name)}</b><div class="muted">${esc(h.email)}</div></div>${badge(h.status)}</div>
+      <div class="muted">Workload: ${h.activeTasks} of 3 active tasks</div><div class="bar"><i style="width:${pct}%"></i></div>
+      <div style="display:flex;justify-content:space-between"><span>Completed: <b>${h.completedTasks}</b></span><span class="muted">${esc(h.phone || "")}</span></div>
+      <div style="margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="edit(${h.id})">Edit</button><button class="btn btn-danger btn-sm" onclick="del(${h.id})">Delete</button></div></div>`;
+    }).join("") : `<div class="empty">No housekeepers yet. Add one to start assigning rooms.</div>`;
+  } catch (e) { toast(e.message, "error"); }
+}
+const form = h => `<label>Name</label><input name="name" value="${esc(h?.name)}" required>
+  <label>Phone (10 digits)</label><input name="phone" value="${esc(h?.phone)}">
+  <label>Email</label><input name="email" type="email" value="${esc(h?.email)}" required>
+  <label>Status</label><select name="status">${["AVAILABLE","BUSY","OFF_DUTY"].map(s => `<option ${h?.status === s ? "selected" : ""}>${s}</option>`).join("")}</select>`;
+const body = f => ({name: f.get("name"), phone: f.get("phone") || null, email: f.get("email"), status: f.get("status")});
+addBtn.onclick = () => openModal("Add Housekeeper", form(), async f => { await api("/housekeepers", "POST", body(f)); toast("Housekeeper added", "ok"); load(); });
+function edit(id) { const h = list.find(x => x.id === id); openModal("Edit Housekeeper", form(h), async f => { await api("/housekeepers/" + id, "PUT", body(f)); toast("Housekeeper updated", "ok"); load(); }); }
+async function del(id) { if (!confirm("Delete this housekeeper?")) return; await run(() => api("/housekeepers/" + id, "DELETE"), "Housekeeper deleted"); load(); }
+load();
+</script>
+</body></html>
