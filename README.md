@@ -35,13 +35,6 @@ Controller (REST + @Valid) -> Service (all business rules, @Transactional) -> Re
 - A room becomes READY -> DIRTY by `POST /api/rooms/{id}/dirty` or by booking checkout.
 - Login is a simple demo check (users in application.properties). Not real security.
 
-## Error codes
-404 RESOURCE_NOT_FOUND, 409 ROOM_NOT_READY / INVALID_STATUS_TRANSITION / HOUSEKEEPER_UNAVAILABLE / CONFLICT, 400 VALIDATION_ERROR / BAD_REQUEST, 401 INVALID_CREDENTIALS.
 
-## Likely viva questions
-1. Why service layer for rules? Controllers stay thin, rules are reused and testable.
-2. What does `@Transactional` do here? If any step fails (no housekeeper), the room status change is rolled back too.
-3. Why `mappedBy`? The `@ManyToOne` side owns the foreign key column; `@OneToMany` just mirrors it.
-4. Why `EnumType.STRING`? Stores names, not positions, so reordering the enum cannot corrupt data.
-5. Dashboard summary is calculated directly from the database when requested.
-6. How is pagination done? `Pageable` parameter: `?page=0&size=10&sort=assignedAt,desc`.
+
+
